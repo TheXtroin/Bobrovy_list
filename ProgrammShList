@@ -1,0 +1,125 @@
+import telebot
+from telebot import types
+import time
+
+bot = telebot.TeleBot('7201185153:AAGOdyaalEfSgUyKyuIT2evYzTA2YIbgpRk')
+
+shopping_list = []
+
+print('Бот запущен!')
+
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    print('Бот в действии')
+    markup = types.ReplyKeyboardMarkup()
+    btn1 = types.KeyboardButton('Просмотреть список покупок')
+    btn2 = types.KeyboardButton('Редактировать список покупок')
+    markup.add(btn1, btn2)
+    bot.send_message(message.chat.id,
+                     'Привет! Выбери необходимую услугу на кнопках под твоей клавиатурой :)', reply_markup=markup)
+
+
+@bot.message_handler(content_types=["text"])
+def look_and_edit(message):
+    if message.text == 'Просмотреть список покупок':
+        list_per = ''
+        for i in range(len(shopping_list)):
+            list_per = list_per + '\n' + str(i + 1) + '.' + ' ' + shopping_list[i]
+        if list_per != '':
+            bot.send_message(message.chat.id, list_per)
+        elif list_per == '':
+            bot.send_message(message.chat.id, 'Список покупок пуст!')
+
+    elif message.text == 'Редактировать список покупок':
+        markup_edit = types.ReplyKeyboardMarkup()
+        btn_create = types.KeyboardButton('Пополнить')
+        btn_delete = types.KeyboardButton('Удалить')
+        btn_esc = types.KeyboardButton('Назад')
+        markup_edit.add(btn_create, btn_delete, btn_esc)
+        bot.send_message(message.chat.id, 'Что ты хочешь изменить в списке покупок?', reply_markup=markup_edit)
+
+    elif message.text == 'Пополнить':
+        markup_create = types.ReplyKeyboardMarkup()
+        btn_finish = 'Готово'
+        markup_create.add(btn_finish)
+        msg = bot.send_message(message.chat.id, 'Напиши продукты для покупки. Как закончишь, нажми на кнопку "Готово"',
+                               reply_markup=markup_create)
+        bot.register_next_step_handler(msg, create_list)
+
+    elif message.text == 'Удалить':
+        markup_delete = types.InlineKeyboardMarkup()
+        btn_end = types.InlineKeyboardButton('Заврешить', callback_data='end')
+        for i in range(len(shopping_list)):
+            btn = types.InlineKeyboardButton(str(shopping_list[i]),
+                                             callback_data='delete_items_' + str(shopping_list[i]))
+            markup_delete.add(btn)
+        markup_delete.add(btn_end)
+
+        bot.send_message(message.chat.id, 'Чтобы удалить продукт, нажми на соответствующую кнопку. Далее нажми на '
+                                          'кнопку "Заврешить"',
+                         reply_markup=markup_delete)
+
+    elif message.text == 'Назад':
+        markup = types.ReplyKeyboardMarkup()
+        btn1 = types.KeyboardButton('Просмотреть список покупок')
+        btn2 = types.KeyboardButton('Редактировать список покупок')
+        markup.add(btn1, btn2)
+        bot.send_message(message.chat.id,
+                         'Выбери необходимую услугу на кнопках под твоей клавиатурой :)', reply_markup=markup)
+
+
+def create_list(message):
+    if message.text != 'Готово':
+        # bot.set_message_reaction(message.chat.id, message.message_id, [types.ReactionTypeEmoji("👍")])
+
+        shopping_list.append(str(message.text))
+        next_do = bot.send_message(message.chat.id, 'Добавлено✅')
+        bot.register_next_step_handler(next_do, create_list)
+
+    else:
+        markup = types.ReplyKeyboardMarkup()
+        btn1 = types.KeyboardButton('Просмотреть список покупок')
+        btn2 = types.KeyboardButton('Редактировать список покупок')
+        markup.add(btn1, btn2)
+        bot.send_message(message.chat.id,
+                         'Выбери необходимую услугу на кнопках под твоей клавиатурой :)', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda callback: True)
+def callback_delete(callback):
+    if callback.data.startswith('delete_items_'):
+
+        shopping_list.remove(callback.data.translate(str.maketrans('', '', 'delete_items_')))
+
+        ydal = 'Удалено: ' + str(callback.data.translate(str.maketrans('', '', 'delete_items_')))
+
+        # bot.delete_message(callback.message.chat.id, callback.message.message_id)
+
+        markup_delete = types.InlineKeyboardMarkup()
+        btn_end = types.InlineKeyboardButton('Хватит', callback_data='end')
+        for i in range(len(shopping_list)):
+            btn = types.InlineKeyboardButton(str(shopping_list[i]),
+                                             callback_data='delete_items_' + str(shopping_list[i]))
+            markup_delete.add(btn)
+        markup_delete.add(btn_end)
+        bot.edit_message_reply_markup(callback.message.chat.id, callback.message.id, reply_markup=markup_delete)
+
+        bot.send_message(callback.message.chat.id, str(ydal))
+
+    if callback.data == 'end':
+        markup = types.ReplyKeyboardMarkup()
+        btn1 = types.KeyboardButton('Просмотреть список покупок')
+        btn2 = types.KeyboardButton('Редактировать список покупок')
+        markup.add(btn1, btn2)
+        bot.send_message(callback.message.chat.id,
+                         'Выбери необходимую услугу на кнопках под твоей клавиатурой :)', reply_markup=markup)
+
+
+if __name__ == '__main__':
+    while True:
+        try:
+            bot.polling(none_stop=True)
+        except Exception as e:
+            time.sleep(3)
+            print(e)
